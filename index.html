@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Cetak Label Harga</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        #print-area {
+            display: none;
+        }
+
+        /* --- PENGATURAN CETAK (PRINT) --- */
+        @media print {
+            #ui-area { display: none !important; }
+            #print-area { display: block !important; }
+            
+            body {
+                background: white;
+                margin: 0;
+                padding: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            @page { margin: 0; }
+            
+            .print-page {
+                width: 210mm;
+                padding: 5mm;
+                display: flex;
+                flex-wrap: wrap;
+                align-content: flex-start;
+                page-break-after: always;
+                box-sizing: border-box;
+                background: white;
+            }
+
+            .print-page.a4 { height: 297mm; }
+            .print-page.f4 { height: 330mm; }
+
+            /* --- DESAIN LABEL 5cm x 3,5cm --- */
+            .label-box {
+                width: 50mm;  
+                height: 35mm; 
+                box-sizing: border-box;
+                border: 1px dashed #ccc; 
+                display: flex;
+                flex-direction: column; /* Vertikal (Atas & Bawah) */
+                background-color: white;
+                overflow: hidden;
+                font-family: Arial, Helvetica, sans-serif;
+            }
+
+            .label-main {
+                flex: 1;
+                padding: 2mm 3mm;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+            }
+
+            .label-item-name {
+                font-size: 9pt;
+                font-weight: bold;
+                color: #333;
+                text-transform: uppercase;
+                line-height: 1.1;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+
+            .label-barcode {
+                font-size: 7.5pt;
+                color: #555;
+                margin-top: 1mm;
+                font-weight: 500;
+            }
+
+            .label-price-wrapper {
+                margin-top: auto;
+            }
+
+            .label-pcs {
+                font-size: 7pt;
+                color: #444;
+                margin-bottom: -1mm;
+            }
+
+            .label-price {
+                font-size: 14pt;
+                font-weight: 900;
+                color: #222;
+                letter-spacing: -0.5px;
+            }
+
+            /* Desain Pita Kuning di Bawah - Diperbarui Rata Kanan */
+            .label-bottom {
+                height: 7mm;
+                background-color: #fca311;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end; /* Rata Kanan */
+                padding-right: 3mm; /* Jarak/Margin dari tepi kanan agar tidak nempel */
+                border-top: 1px solid #eee;
+            }
+
+            .label-store-name {
+                white-space: nowrap;
+                font-size: 8.5pt;
+                font-weight: 900;
+                color: #555;
+                letter-spacing: 1px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+    <!-- AREA ANTARMUKA PENGGUNA (UI) -->
+    <div id="ui-area" class="max-w-5xl mx-auto p-6">
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">🏷️ Aplikasi Cetak Label Harga</h1>
+            <p class="text-gray-500 mb-6 text-sm">Upload file Excel, filter/cari barang, lalu cetak label harga (5 x 3.5 cm).</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Kiri: Pengaturan Data -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">1. Upload File Excel (.xls / .xlsx)</label>
+                        <input type="file" id="excel-file" accept=".xls,.xlsx,.csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-gray-300 rounded-md p-1 cursor-pointer">
+                    </div>
+
+                    <div id="column-mapping" class="hidden p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <p class="text-xs text-yellow-800 font-bold mb-2">Sesuaikan Kolom Excel:</p>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-600">Kode/Barcode</label>
+                                <select id="map-code" class="w-full text-sm border-gray-300 rounded p-1"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600">Nama Barang</label>
+                                <select id="map-name" class="w-full text-sm border-gray-300 rounded p-1"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600">Harga</label>
+                                <select id="map-price" class="w-full text-sm border-gray-300 rounded p-1"></select>
+                            </div>
+                        </div>
+                        <button onclick="processData()" class="mt-3 w-full bg-blue-600 text-white text-sm py-1.5 rounded hover:bg-blue-700">Terapkan Data</button>
+                    </div>
+                </div>
+
+                <!-- Kanan: Pengaturan Cetak -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">2. Nama Toko (Pita Bawah)</label>
+                        <input type="text" id="store-name" value="WARNA MART" class="w-full border-gray-300 border rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">3. Ukuran Kertas</label>
+                        <select id="paper-size" class="w-full border-gray-300 border rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="a4">A4 (210 x 297 mm)</option>
+                            <option value="f4">F4 / Folio (210 x 330 mm)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button id="btn-print" onclick="prepareAndPrint()" disabled class="w-full mt-2 bg-green-600 text-white font-bold py-2 px-4 rounded-md opacity-50 cursor-not-allowed transition-all hover:bg-green-700">
+                            🖨️ Cetak Label Terpilih
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabel Data Barang -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                <h2 class="text-lg font-bold text-gray-800">Daftar Barang</h2>
+                
+                <!-- Fitur Pencarian (Search) -->
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <input type="text" id="search-input" onkeyup="filterTable()" placeholder="Cari nama atau kode..." class="w-full md:w-64 border-gray-300 border rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+                    <div class="text-sm text-gray-600 whitespace-nowrap bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">
+                        Dipilih: <span id="selected-count" class="font-bold text-blue-600">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto max-h-[500px] border border-gray-200 rounded-md relative">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0 shadow-sm">
+                        <tr>
+                            <th class="px-4 py-3 w-16">
+                                <input type="checkbox" id="check-all" onclick="toggleAll(this)" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            </th>
+                            <th class="px-4 py-3">Kode/Barcode</th>
+                            <th class="px-4 py-3">Nama Barang</th>
+                            <th class="px-4 py-3">Harga (Rp)</th>
+                            <th class="px-4 py-3 w-32">Jml Cetak</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-gray-400">
+                                Silakan upload file Excel terlebih dahulu.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- AREA CETAK (PRINT) -->
+    <div id="print-area"></div>
+
+    <script>
+        let rawExcelData = [];
+        let headers = [];
+        let processedItems = [];
+
+        document.getElementById('excel-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                rawExcelData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                
+                if (rawExcelData.length > 0) {
+                    headers = rawExcelData[0];
+                    setupMapping();
+                } else {
+                    alert("File Excel kosong!");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function setupMapping() {
+            const mapCode = document.getElementById('map-code');
+            const mapName = document.getElementById('map-name');
+            const mapPrice = document.getElementById('map-price');
+            
+            mapCode.innerHTML = ''; mapName.innerHTML = ''; mapPrice.innerHTML = '';
+
+            headers.forEach((header, index) => {
+                const option = `<option value="${index}">${header || 'Kolom ' + (index+1)}</option>`;
+                mapCode.innerHTML += option;
+                mapName.innerHTML += option;
+                mapPrice.innerHTML += option;
+            });
+
+            headers.forEach((h, i) => {
+                const head = String(h).toLowerCase();
+                if (head.includes('kode') || head.includes('barcode') || head.includes('plu')) mapCode.selectedIndex = i;
+                if (head.includes('nama') || head.includes('barang') || head.includes('deskripsi')) mapName.selectedIndex = i;
+                if (head.includes('harga') || head.includes('jual') || head.includes('rp')) mapPrice.selectedIndex = i;
+            });
+
+            document.getElementById('column-mapping').classList.remove('hidden');
+        }
+
+        function processData() {
+            const idxCode = document.getElementById('map-code').value;
+            const idxName = document.getElementById('map-name').value;
+            const idxPrice = document.getElementById('map-price').value;
+
+            processedItems = [];
+            
+            for (let i = 1; i < rawExcelData.length; i++) {
+                const row = rawExcelData[i];
+                if (!row || row.length === 0) continue;
+
+                const code = row[idxCode] !== undefined ? row[idxCode] : '-';
+                const name = row[idxName] !== undefined ? row[idxName] : 'Tanpa Nama';
+                const price = row[idxPrice] !== undefined ? row[idxPrice] : 0;
+
+                if (name && name !== 'Tanpa Nama') {
+                    processedItems.push({
+                        id: i,
+                        code: String(code),
+                        name: String(name),
+                        price: parseFloat(price) || 0
+                    });
+                }
+            }
+
+            renderTable();
+            document.getElementById('btn-print').disabled = false;
+            document.getElementById('btn-print').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('search-input').value = '';
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            processedItems.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'bg-white border-b hover:bg-gray-50 data-row';
+                
+                const formattedPrice = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(item.price);
+
+                tr.innerHTML = `
+                    <td class="px-4 py-2">
+                        <input type="checkbox" class="item-checkbox w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" 
+                               data-index="${index}" onchange="updateSelectedCount()">
+                    </td>
+                    <td class="px-4 py-2 font-medium text-gray-900 item-code">${item.code}</td>
+                    <td class="px-4 py-2 item-name">${item.name}</td>
+                    <td class="px-4 py-2">${formattedPrice}</td>
+                    <td class="px-4 py-2">
+                        <input type="number" min="1" value="1" class="item-qty border border-gray-300 rounded w-16 px-2 py-1 text-sm" data-index="${index}" onchange="updateSelectedCount()">
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            updateSelectedCount();
+        }
+
+        function filterTable() {
+            const input = document.getElementById("search-input").value.toLowerCase();
+            const trs = document.querySelectorAll("#table-body tr.data-row");
+
+            trs.forEach(tr => {
+                const name = tr.querySelector(".item-name").innerText.toLowerCase();
+                const code = tr.querySelector(".item-code").innerText.toLowerCase();
+                
+                if (name.includes(input) || code.includes(input)) {
+                    tr.style.display = ""; 
+                } else {
+                    tr.style.display = "none"; 
+                }
+            });
+        }
+
+        function toggleAll(source) {
+            const trs = document.querySelectorAll("#table-body tr.data-row");
+            trs.forEach(tr => {
+                if (tr.style.display !== "none") {
+                    const cb = tr.querySelector('.item-checkbox');
+                    if (cb) cb.checked = source.checked;
+                }
+            });
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            const quantities = document.querySelectorAll('.item-qty');
+            let total = 0;
+
+            checkboxes.forEach((cb, idx) => {
+                if (cb.checked) {
+                    total += parseInt(quantities[idx].value) || 1;
+                }
+            });
+            document.getElementById('selected-count').innerText = total;
+        }
+
+        function prepareAndPrint() {
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = ''; 
+
+            const storeName = document.getElementById('store-name').value || "WARNA MART";
+            const paperSize = document.getElementById('paper-size').value; 
+
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            const quantities = document.querySelectorAll('.item-qty');
+            
+            let labelsToPrint = [];
+
+            checkboxes.forEach((cb, idx) => {
+                if (cb.checked) {
+                    const item = processedItems[cb.getAttribute('data-index')];
+                    const qty = parseInt(quantities[idx].value) || 1;
+                    
+                    for (let i = 0; i < qty; i++) {
+                        labelsToPrint.push(item);
+                    }
+                }
+            });
+
+            if (labelsToPrint.length === 0) {
+                alert("Pilih minimal satu barang yang akan dicetak!");
+                return;
+            }
+
+            const cols = 4;
+            const rowsPerPage = paperSize === 'f4' ? 9 : 8;
+            const labelsPerPage = cols * rowsPerPage;
+
+            let currentPageDiv = null;
+
+            labelsToPrint.forEach((item, index) => {
+                if (index % labelsPerPage === 0) {
+                    currentPageDiv = document.createElement('div');
+                    currentPageDiv.className = `print-page ${paperSize}`;
+                    printArea.appendChild(currentPageDiv);
+                }
+
+                const priceFormatted = "Rp. " + new Intl.NumberFormat('id-ID').format(item.price);
+
+                const labelHTML = `
+                    <div class="label-box">
+                        <div class="label-main">
+                            <div>
+                                <div class="label-item-name">${item.name}</div>
+                                <div class="label-barcode">${item.code}</div>
+                            </div>
+                            <div class="label-price-wrapper">
+                                <div class="label-pcs">Harga / PCS</div>
+                                <div class="label-price">${priceFormatted}</div>
+                            </div>
+                        </div>
+                        <!-- Pita Bawah -->
+                        <div class="label-bottom">
+                            <span class="label-store-name">${storeName}</span>
+                        </div>
+                    </div>
+                `;
+                currentPageDiv.innerHTML += labelHTML;
+            });
+
+            window.print();
+        }
+    </script>
+</body>
+</html>
