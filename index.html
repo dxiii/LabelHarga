@@ -6,17 +6,28 @@
     <title>Aplikasi Cetak Label Harga</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SheetJS -->
+    <!-- SheetJS untuk baca Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- html2pdf untuk fitur Download PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <style>
+        /* Sembunyikan area print dari layar utama tapi tetap ada di DOM agar bisa dibaca fungsi Download */
         #print-area {
-            display: none;
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            background: white;
         }
 
         /* --- PENGATURAN CETAK (PRINT) --- */
         @media print {
             #ui-area { display: none !important; }
-            #print-area { display: block !important; }
+            #print-area { 
+                display: block !important; 
+                position: relative;
+                left: 0;
+            }
             
             body {
                 background: white;
@@ -49,7 +60,7 @@
                 box-sizing: border-box;
                 border: 1px dashed #ccc; 
                 display: flex;
-                flex-direction: column; /* Vertikal (Atas & Bawah) */
+                flex-direction: column; 
                 background-color: white;
                 overflow: hidden;
                 font-family: Arial, Helvetica, sans-serif;
@@ -70,7 +81,6 @@
                 text-transform: uppercase;
                 line-height: 1.1;
                 display: -webkit-box;
-                line-clamp: 2;
                 -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
                 overflow: hidden;
@@ -100,14 +110,14 @@
                 letter-spacing: -0.5px;
             }
 
-            /* Desain Pita Kuning di Bawah - Diperbarui Rata Kanan */
+            /* Pita Bawah - Rata Kanan */
             .label-bottom {
                 height: 7mm;
                 background-color: #fca311;
                 display: flex;
                 align-items: center;
-                justify-content: flex-end; /* Rata Kanan */
-                padding-right: 3mm; /* Jarak/Margin dari tepi kanan agar tidak nempel */
+                justify-content: flex-end; 
+                padding-right: 3mm; 
                 border-top: 1px solid #eee;
             }
 
@@ -119,6 +129,30 @@
                 letter-spacing: 1px;
             }
         }
+        
+        /* Pengaturan agar html2pdf bisa membaca desain label dengan benar */
+        .pdf-mode .print-page {
+            width: 210mm;
+            padding: 5mm;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            background: white;
+        }
+        .pdf-mode .print-page.a4 { height: 297mm; }
+        .pdf-mode .print-page.f4 { height: 330mm; }
+        .pdf-mode .label-box {
+            width: 50mm; height: 35mm; box-sizing: border-box; border: 1px dashed #ccc; 
+            display: flex; flex-direction: column; background-color: white; overflow: hidden; font-family: Arial;
+        }
+        .pdf-mode .label-main { flex: 1; padding: 2mm 3mm; display: flex; flex-direction: column; justify-content: space-between; }
+        .pdf-mode .label-item-name { font-size: 9pt; font-weight: bold; color: #333; line-height: 1.1; }
+        .pdf-mode .label-barcode { font-size: 7.5pt; color: #555; margin-top: 1mm; font-weight: 500; }
+        .pdf-mode .label-price-wrapper { margin-top: auto; }
+        .pdf-mode .label-pcs { font-size: 7pt; color: #444; margin-bottom: -1mm; }
+        .pdf-mode .label-price { font-size: 14pt; font-weight: 900; color: #222; }
+        .pdf-mode .label-bottom { height: 7mm; background-color: #fca311 !important; display: flex; align-items: center; justify-content: flex-end; padding-right: 3mm; border-top: 1px solid #eee; -webkit-print-color-adjust: exact; }
+        .pdf-mode .label-store-name { font-size: 8.5pt; font-weight: 900; color: #555; letter-spacing: 1px; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
@@ -127,7 +161,7 @@
     <div id="ui-area" class="max-w-5xl mx-auto p-6">
         <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
             <h1 class="text-2xl font-bold text-gray-800 mb-2">🏷️ Aplikasi Cetak Label Harga</h1>
-            <p class="text-gray-500 mb-6 text-sm">Upload file Excel, filter/cari barang, lalu cetak label harga (5 x 3.5 cm).</p>
+            <p class="text-gray-500 mb-6 text-sm">Upload file Excel, filter data, lalu Cetak atau Unduh sebagai PDF / Word.</p>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <!-- Kiri: Pengaturan Data -->
@@ -170,9 +204,17 @@
                             <option value="f4">F4 / Folio (210 x 330 mm)</option>
                         </select>
                     </div>
-                    <div>
-                        <button id="btn-print" onclick="prepareAndPrint()" disabled class="w-full mt-2 bg-green-600 text-white font-bold py-2 px-4 rounded-md opacity-50 cursor-not-allowed transition-all hover:bg-green-700">
-                            🖨️ Cetak Label Terpilih
+                    
+                    <!-- Tombol Aksi -->
+                    <div class="grid grid-cols-3 gap-2 pt-2">
+                        <button id="btn-print" onclick="actionPrint()" disabled class="action-btn w-full bg-green-600 text-white font-bold py-2 px-2 text-sm rounded-md opacity-50 cursor-not-allowed hover:bg-green-700">
+                            🖨️ Cetak
+                        </button>
+                        <button id="btn-pdf" onclick="actionPDF()" disabled class="action-btn w-full bg-red-600 text-white font-bold py-2 px-2 text-sm rounded-md opacity-50 cursor-not-allowed hover:bg-red-700">
+                            📄 PDF
+                        </button>
+                        <button id="btn-word" onclick="actionWord()" disabled class="action-btn w-full bg-blue-600 text-white font-bold py-2 px-2 text-sm rounded-md opacity-50 cursor-not-allowed hover:bg-blue-700">
+                            📝 Word
                         </button>
                     </div>
                 </div>
@@ -183,8 +225,6 @@
         <div class="bg-white rounded-xl shadow-lg p-6">
             <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                 <h2 class="text-lg font-bold text-gray-800">Daftar Barang</h2>
-                
-                <!-- Fitur Pencarian (Search) -->
                 <div class="flex items-center gap-4 w-full md:w-auto">
                     <input type="text" id="search-input" onkeyup="filterTable()" placeholder="Cari nama atau kode..." class="w-full md:w-64 border-gray-300 border rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500">
                     <div class="text-sm text-gray-600 whitespace-nowrap bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">
@@ -208,9 +248,7 @@
                     </thead>
                     <tbody id="table-body">
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-gray-400">
-                                Silakan upload file Excel terlebih dahulu.
-                            </td>
+                            <td colspan="5" class="px-4 py-8 text-center text-gray-400">Silakan upload file Excel terlebih dahulu.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -218,7 +256,7 @@
         </div>
     </div>
 
-    <!-- AREA CETAK (PRINT) -->
+    <!-- AREA CETAK / EXPORT (PRINT) -->
     <div id="print-area"></div>
 
     <script>
@@ -299,8 +337,12 @@
             }
 
             renderTable();
-            document.getElementById('btn-print').disabled = false;
-            document.getElementById('btn-print').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            // Aktifkan tombol
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            });
             document.getElementById('search-input').value = '';
         }
 
@@ -311,13 +353,10 @@
             processedItems.forEach((item, index) => {
                 const tr = document.createElement('tr');
                 tr.className = 'bg-white border-b hover:bg-gray-50 data-row';
-                
                 const formattedPrice = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(item.price);
-
                 tr.innerHTML = `
                     <td class="px-4 py-2">
-                        <input type="checkbox" class="item-checkbox w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" 
-                               data-index="${index}" onchange="updateSelectedCount()">
+                        <input type="checkbox" class="item-checkbox w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-index="${index}" onchange="updateSelectedCount()">
                     </td>
                     <td class="px-4 py-2 font-medium text-gray-900 item-code">${item.code}</td>
                     <td class="px-4 py-2 item-name">${item.name}</td>
@@ -334,22 +373,15 @@
         function filterTable() {
             const input = document.getElementById("search-input").value.toLowerCase();
             const trs = document.querySelectorAll("#table-body tr.data-row");
-
             trs.forEach(tr => {
                 const name = tr.querySelector(".item-name").innerText.toLowerCase();
                 const code = tr.querySelector(".item-code").innerText.toLowerCase();
-                
-                if (name.includes(input) || code.includes(input)) {
-                    tr.style.display = ""; 
-                } else {
-                    tr.style.display = "none"; 
-                }
+                tr.style.display = (name.includes(input) || code.includes(input)) ? "" : "none";
             });
         }
 
         function toggleAll(source) {
-            const trs = document.querySelectorAll("#table-body tr.data-row");
-            trs.forEach(tr => {
+            document.querySelectorAll("#table-body tr.data-row").forEach(tr => {
                 if (tr.style.display !== "none") {
                     const cb = tr.querySelector('.item-checkbox');
                     if (cb) cb.checked = source.checked;
@@ -359,50 +391,42 @@
         }
 
         function updateSelectedCount() {
+            let total = 0;
             const checkboxes = document.querySelectorAll('.item-checkbox');
             const quantities = document.querySelectorAll('.item-qty');
-            let total = 0;
-
             checkboxes.forEach((cb, idx) => {
-                if (cb.checked) {
-                    total += parseInt(quantities[idx].value) || 1;
-                }
+                if (cb.checked) total += parseInt(quantities[idx].value) || 1;
             });
             document.getElementById('selected-count').innerText = total;
         }
 
-        function prepareAndPrint() {
+        // FUNGSI UTAMA GENERATE DOM
+        function generatePrintDOM() {
             const printArea = document.getElementById('print-area');
             printArea.innerHTML = ''; 
 
             const storeName = document.getElementById('store-name').value || "WARNA MART";
             const paperSize = document.getElementById('paper-size').value; 
-
             const checkboxes = document.querySelectorAll('.item-checkbox');
             const quantities = document.querySelectorAll('.item-qty');
-            
             let labelsToPrint = [];
 
             checkboxes.forEach((cb, idx) => {
                 if (cb.checked) {
                     const item = processedItems[cb.getAttribute('data-index')];
                     const qty = parseInt(quantities[idx].value) || 1;
-                    
-                    for (let i = 0; i < qty; i++) {
-                        labelsToPrint.push(item);
-                    }
+                    for (let i = 0; i < qty; i++) labelsToPrint.push(item);
                 }
             });
 
             if (labelsToPrint.length === 0) {
-                alert("Pilih minimal satu barang yang akan dicetak!");
-                return;
+                alert("Pilih minimal satu barang yang akan dicetak/diunduh!");
+                return false;
             }
 
             const cols = 4;
             const rowsPerPage = paperSize === 'f4' ? 9 : 8;
             const labelsPerPage = cols * rowsPerPage;
-
             let currentPageDiv = null;
 
             labelsToPrint.forEach((item, index) => {
@@ -413,7 +437,6 @@
                 }
 
                 const priceFormatted = "Rp. " + new Intl.NumberFormat('id-ID').format(item.price);
-
                 const labelHTML = `
                     <div class="label-box">
                         <div class="label-main">
@@ -426,7 +449,6 @@
                                 <div class="label-price">${priceFormatted}</div>
                             </div>
                         </div>
-                        <!-- Pita Bawah -->
                         <div class="label-bottom">
                             <span class="label-store-name">${storeName}</span>
                         </div>
@@ -434,8 +456,79 @@
                 `;
                 currentPageDiv.innerHTML += labelHTML;
             });
+            return true;
+        }
 
-            window.print();
+        // 1. ACTION: PRINT
+        function actionPrint() {
+            if (generatePrintDOM()) {
+                window.print();
+            }
+        }
+
+        // 2. ACTION: UNDUH PDF
+        function actionPDF() {
+            if (!generatePrintDOM()) return;
+            
+            const btn = document.getElementById('btn-pdf');
+            btn.innerHTML = '⏳ Memproses...';
+            
+            const printArea = document.getElementById('print-area');
+            printArea.classList.add('pdf-mode'); // Tambahkan class khusus PDF
+            
+            const paperSize = document.getElementById('paper-size').value;
+            const formatSize = paperSize === 'a4' ? 'a4' : [210, 330]; // Custom F4 (210x330mm)
+
+            const opt = {
+                margin:       0,
+                filename:     'Label_Harga_WarnaMart.pdf',
+                image:        { type: 'jpeg', quality: 1 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: formatSize, orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(printArea).save().then(() => {
+                printArea.classList.remove('pdf-mode');
+                btn.innerHTML = '📄 PDF';
+            });
+        }
+
+        // 3. ACTION: UNDUH WORD (.doc)
+        function actionWord() {
+            if (!generatePrintDOM()) return;
+            
+            // Format HTML agar MS Word bisa membaca layout standar
+            const preHtml = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+            <head><meta charset='utf-8'><title>Label Harga</title>
+            <style>
+                body { font-family: Arial, sans-serif; }
+                .print-page { width: 100%; clear: both; page-break-after: always; }
+                .label-box { width: 180px; height: 130px; border: 1px dashed #ccc; float: left; margin: 2px; padding: 0; position: relative; overflow: hidden; }
+                .label-main { padding: 5px; height: 95px; }
+                .label-item-name { font-size: 11px; font-weight: bold; text-transform: uppercase; }
+                .label-barcode { font-size: 10px; color: #555; margin-top: 3px; }
+                .label-price-wrapper { margin-top: 10px; }
+                .label-pcs { font-size: 9px; color: #444; }
+                .label-price { font-size: 18px; font-weight: bold; color: #000; }
+                .label-bottom { background-color: #fca311; height: 25px; text-align: right; font-weight: bold; font-size: 11px; line-height: 25px; padding-right: 10px; border-top: 1px solid #ccc;}
+            </style>
+            </head><body>`;
+            const postHtml = "</body></html>";
+            
+            const printArea = document.getElementById('print-area').innerHTML;
+            const finalHtml = preHtml + printArea + postHtml;
+
+            // Buat Blob dan download
+            const blob = new Blob(['\ufeff', finalHtml], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            
+            const downloadLink = document.createElement("a");
+            downloadLink.href = url;
+            downloadLink.download = 'Label_Harga_WarnaMart.doc';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>
