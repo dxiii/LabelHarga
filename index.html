@@ -12,12 +12,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
-        /* Sembunyikan area print dari layar utama tapi tetap ada di DOM agar bisa dibaca fungsi Download */
+        /* Sembunyikan area print dari layar utama */
         #print-area {
             position: absolute;
             left: -9999px;
             top: 0;
             background: white;
+            display: none;
         }
 
         /* --- PENGATURAN CETAK (PRINT) --- */
@@ -28,7 +29,6 @@
                 position: relative;
                 left: 0;
             }
-            
             body {
                 background: white;
                 margin: 0;
@@ -36,123 +36,43 @@
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-
             @page { margin: 0; }
-            
-            .print-page {
-                width: 210mm;
-                padding: 5mm;
-                display: flex;
-                flex-wrap: wrap;
-                align-content: flex-start;
-                page-break-after: always;
-                box-sizing: border-box;
-                background: white;
-            }
-
-            .print-page.a4 { height: 297mm; }
-            .print-page.f4 { height: 330mm; }
-
-            /* --- DESAIN LABEL 5cm x 3,5cm --- */
-            .label-box {
-                width: 50mm;  
-                height: 35mm; 
-                box-sizing: border-box;
-                border: 1px dashed #ccc; 
-                display: flex;
-                flex-direction: column; 
-                background-color: white;
-                overflow: hidden;
-                font-family: Arial, Helvetica, sans-serif;
-            }
-
-            .label-main {
-                flex: 1;
-                padding: 2mm 3mm;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-            }
-
-            .label-item-name {
-                font-size: 9pt;
-                font-weight: bold;
-                color: #333;
-                text-transform: uppercase;
-                line-height: 1.1;
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
-
-            .label-barcode {
-                font-size: 7.5pt;
-                color: #555;
-                margin-top: 1mm;
-                font-weight: 500;
-            }
-
-            .label-price-wrapper {
-                margin-top: auto;
-            }
-
-            .label-pcs {
-                font-size: 7pt;
-                color: #444;
-                margin-bottom: -1mm;
-            }
-
-            .label-price {
-                font-size: 14pt;
-                font-weight: 900;
-                color: #222;
-                letter-spacing: -0.5px;
-            }
-
-            /* Pita Bawah - Rata Kanan */
-            .label-bottom {
-                height: 7mm;
-                background-color: #fca311;
-                display: flex;
-                align-items: center;
-                justify-content: flex-end; 
-                padding-right: 3mm; 
-                border-top: 1px solid #eee;
-            }
-
-            .label-store-name {
-                white-space: nowrap;
-                font-size: 8.5pt;
-                font-weight: 900;
-                color: #555;
-                letter-spacing: 1px;
-            }
         }
         
-        /* Pengaturan agar html2pdf bisa membaca desain label dengan benar */
-        .pdf-mode .print-page {
+        /* Layout Halaman dan Label Standar untuk Print & PDF */
+        .print-page {
             width: 210mm;
             padding: 5mm;
             display: flex;
             flex-wrap: wrap;
             align-content: flex-start;
+            page-break-after: always;
+            box-sizing: border-box;
             background: white;
         }
-        .pdf-mode .print-page.a4 { height: 297mm; }
-        .pdf-mode .print-page.f4 { height: 330mm; }
-        .pdf-mode .label-box {
-            width: 50mm; height: 35mm; box-sizing: border-box; border: 1px dashed #ccc; 
-            display: flex; flex-direction: column; background-color: white; overflow: hidden; font-family: Arial;
+        .print-page.a4 { height: 297mm; }
+        .print-page.f4 { height: 330mm; }
+
+        .label-box {
+            width: 50mm;  
+            height: 35mm; 
+            box-sizing: border-box;
+            border: 1px dashed #ccc; 
+            display: flex;
+            flex-direction: column; 
+            background-color: white;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
         }
-        .pdf-mode .label-main { flex: 1; padding: 2mm 3mm; display: flex; flex-direction: column; justify-content: space-between; }
-        .pdf-mode .label-item-name { font-size: 9pt; font-weight: bold; color: #333; line-height: 1.1; }
-        .pdf-mode .label-barcode { font-size: 7.5pt; color: #555; margin-top: 1mm; font-weight: 500; }
-        .pdf-mode .label-price-wrapper { margin-top: auto; }
-        .pdf-mode .label-pcs { font-size: 7pt; color: #444; margin-bottom: -1mm; }
-        .pdf-mode .label-price { font-size: 14pt; font-weight: 900; color: #222; }
-        .pdf-mode .label-bottom { height: 7mm; background-color: #fca311 !important; display: flex; align-items: center; justify-content: flex-end; padding-right: 3mm; border-top: 1px solid #eee; -webkit-print-color-adjust: exact; }
-        .pdf-mode .label-store-name { font-size: 8.5pt; font-weight: 900; color: #555; letter-spacing: 1px; }
+        .label-main { flex: 1; padding: 2mm 3mm; display: flex; flex-direction: column; justify-content: space-between; }
+        .label-item-name { font-size: 9pt; font-weight: bold; color: #333; text-transform: uppercase; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .label-barcode { font-size: 7.5pt; color: #555; margin-top: 1mm; font-weight: 500; }
+        .label-price-wrapper { margin-top: auto; }
+        .label-pcs { font-size: 7pt; color: #444; margin-bottom: -1mm; }
+        .label-price { font-size: 14pt; font-weight: 900; color: #222; letter-spacing: -0.5px; }
+        .label-bottom { height: 7mm; background-color: #fca311 !important; display: flex; align-items: center; justify-content: flex-end; padding-right: 3mm; border-top: 1px solid #eee; color: #555; -webkit-print-color-adjust: exact; }
+        .label-store-name { white-space: nowrap; font-size: 8.5pt; font-weight: 900; letter-spacing: 1px; }
+
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
@@ -267,7 +187,6 @@
         document.getElementById('excel-file').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
@@ -293,21 +212,16 @@
             const mapPrice = document.getElementById('map-price');
             
             mapCode.innerHTML = ''; mapName.innerHTML = ''; mapPrice.innerHTML = '';
-
             headers.forEach((header, index) => {
                 const option = `<option value="${index}">${header || 'Kolom ' + (index+1)}</option>`;
-                mapCode.innerHTML += option;
-                mapName.innerHTML += option;
-                mapPrice.innerHTML += option;
+                mapCode.innerHTML += option; mapName.innerHTML += option; mapPrice.innerHTML += option;
             });
-
             headers.forEach((h, i) => {
                 const head = String(h).toLowerCase();
                 if (head.includes('kode') || head.includes('barcode') || head.includes('plu')) mapCode.selectedIndex = i;
                 if (head.includes('nama') || head.includes('barang') || head.includes('deskripsi')) mapName.selectedIndex = i;
                 if (head.includes('harga') || head.includes('jual') || head.includes('rp')) mapPrice.selectedIndex = i;
             });
-
             document.getElementById('column-mapping').classList.remove('hidden');
         }
 
@@ -315,30 +229,20 @@
             const idxCode = document.getElementById('map-code').value;
             const idxName = document.getElementById('map-name').value;
             const idxPrice = document.getElementById('map-price').value;
-
             processedItems = [];
             
             for (let i = 1; i < rawExcelData.length; i++) {
                 const row = rawExcelData[i];
                 if (!row || row.length === 0) continue;
-
                 const code = row[idxCode] !== undefined ? row[idxCode] : '-';
                 const name = row[idxName] !== undefined ? row[idxName] : 'Tanpa Nama';
                 const price = row[idxPrice] !== undefined ? row[idxPrice] : 0;
 
                 if (name && name !== 'Tanpa Nama') {
-                    processedItems.push({
-                        id: i,
-                        code: String(code),
-                        name: String(name),
-                        price: parseFloat(price) || 0
-                    });
+                    processedItems.push({ id: i, code: String(code), name: String(name), price: parseFloat(price) || 0 });
                 }
             }
-
             renderTable();
-            
-            // Aktifkan tombol
             document.querySelectorAll('.action-btn').forEach(btn => {
                 btn.disabled = false;
                 btn.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -349,21 +253,16 @@
         function renderTable() {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
-
             processedItems.forEach((item, index) => {
                 const tr = document.createElement('tr');
                 tr.className = 'bg-white border-b hover:bg-gray-50 data-row';
                 const formattedPrice = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(item.price);
                 tr.innerHTML = `
-                    <td class="px-4 py-2">
-                        <input type="checkbox" class="item-checkbox w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-index="${index}" onchange="updateSelectedCount()">
-                    </td>
+                    <td class="px-4 py-2"><input type="checkbox" class="item-checkbox w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-index="${index}" onchange="updateSelectedCount()"></td>
                     <td class="px-4 py-2 font-medium text-gray-900 item-code">${item.code}</td>
                     <td class="px-4 py-2 item-name">${item.name}</td>
                     <td class="px-4 py-2">${formattedPrice}</td>
-                    <td class="px-4 py-2">
-                        <input type="number" min="1" value="1" class="item-qty border border-gray-300 rounded w-16 px-2 py-1 text-sm" data-index="${index}" onchange="updateSelectedCount()">
-                    </td>
+                    <td class="px-4 py-2"><input type="number" min="1" value="1" class="item-qty border border-gray-300 rounded w-16 px-2 py-1 text-sm" data-index="${index}" onchange="updateSelectedCount()"></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -400,7 +299,7 @@
             document.getElementById('selected-count').innerText = total;
         }
 
-        // FUNGSI UTAMA GENERATE DOM
+        // --- FUNGSI GENERATOR DOM STANDAR (UNTUK CETAK / PDF) ---
         function generatePrintDOM() {
             const printArea = document.getElementById('print-area');
             printArea.innerHTML = ''; 
@@ -466,60 +365,146 @@
             }
         }
 
-        // 2. ACTION: UNDUH PDF
+        // 2. ACTION: UNDUH PDF (DIPERBAIKI)
         function actionPDF() {
             if (!generatePrintDOM()) return;
             
             const btn = document.getElementById('btn-pdf');
             btn.innerHTML = '⏳ Memproses...';
+            btn.disabled = true;
             
+            const uiArea = document.getElementById('ui-area');
             const printArea = document.getElementById('print-area');
-            printArea.classList.add('pdf-mode'); // Tambahkan class khusus PDF
+            
+            // Trik perbaikan: Sembunyikan UI dan Tampilkan area print secara normal 
+            // di layar utama selama proses render, agar tidak blank
+            uiArea.style.display = 'none';
+            printArea.style.display = 'block';
+            printArea.style.position = 'relative';
+            printArea.style.left = '0';
             
             const paperSize = document.getElementById('paper-size').value;
-            const formatSize = paperSize === 'a4' ? 'a4' : [210, 330]; // Custom F4 (210x330mm)
+            const formatSize = paperSize === 'a4' ? 'a4' : [210, 330]; 
 
             const opt = {
                 margin:       0,
                 filename:     'Label_Harga_WarnaMart.pdf',
                 image:        { type: 'jpeg', quality: 1 },
-                html2canvas:  { scale: 2, useCORS: true },
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
                 jsPDF:        { unit: 'mm', format: formatSize, orientation: 'portrait' }
             };
 
-            html2pdf().set(opt).from(printArea).save().then(() => {
-                printArea.classList.remove('pdf-mode');
-                btn.innerHTML = '📄 PDF';
-            });
+            // Beri jeda/delay 500ms agar browser sempat memuat tampilan elemen sebelum discreenshot
+            setTimeout(() => {
+                html2pdf().set(opt).from(printArea).save().then(() => {
+                    // Kembalikan antarmuka seperti semula
+                    printArea.style.display = 'none';
+                    printArea.style.position = 'absolute';
+                    printArea.style.left = '-9999px';
+                    uiArea.style.display = 'block';
+                    
+                    btn.innerHTML = '📄 PDF';
+                    btn.disabled = false;
+                });
+            }, 500); 
         }
 
-        // 3. ACTION: UNDUH WORD (.doc)
+        // 3. ACTION: UNDUH WORD (DIPERBAIKI SECARA KHUSUS UNTUK MS WORD)
         function actionWord() {
-            if (!generatePrintDOM()) return;
-            
-            // Format HTML agar MS Word bisa membaca layout standar
-            const preHtml = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+            // Ambil data yang diceklis
+            const storeName = document.getElementById('store-name').value || "WARNA MART";
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            const quantities = document.querySelectorAll('.item-qty');
+            let labelsToPrint = [];
+
+            checkboxes.forEach((cb, idx) => {
+                if (cb.checked) {
+                    const item = processedItems[cb.getAttribute('data-index')];
+                    const qty = parseInt(quantities[idx].value) || 1;
+                    for (let i = 0; i < qty; i++) labelsToPrint.push(item);
+                }
+            });
+
+            if (labelsToPrint.length === 0) {
+                alert("Pilih minimal satu barang yang akan dicetak/diunduh!");
+                return;
+            }
+
+            // Membangun ulang layout menggunakan TAG TABLE agar tidak berantakan di MS Word
+            let wordHtml = `
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
             <head><meta charset='utf-8'><title>Label Harga</title>
             <style>
                 body { font-family: Arial, sans-serif; }
-                .print-page { width: 100%; clear: both; page-break-after: always; }
-                .label-box { width: 180px; height: 130px; border: 1px dashed #ccc; float: left; margin: 2px; padding: 0; position: relative; overflow: hidden; }
-                .label-main { padding: 5px; height: 95px; }
-                .label-item-name { font-size: 11px; font-weight: bold; text-transform: uppercase; }
-                .label-barcode { font-size: 10px; color: #555; margin-top: 3px; }
-                .label-price-wrapper { margin-top: 10px; }
-                .label-pcs { font-size: 9px; color: #444; }
-                .label-price { font-size: 18px; font-weight: bold; color: #000; }
-                .label-bottom { background-color: #fca311; height: 25px; text-align: right; font-weight: bold; font-size: 11px; line-height: 25px; padding-right: 10px; border-top: 1px solid #ccc;}
+                table { border-collapse: collapse; border-spacing: 0; width: 100%; }
+                td { 
+                    width: 188px; /* 50mm */
+                    height: 132px; /* 35mm */
+                    border: 1pt dashed #cccccc; 
+                    padding: 0; 
+                    vertical-align: top; 
+                }
+                .content-box { padding: 8px; height: 102px; box-sizing: border-box; }
+                .name { font-size: 11px; font-weight: bold; text-transform: uppercase; margin: 0; padding: 0; line-height: 1.1; }
+                .code { font-size: 10px; color: #555555; margin-top: 3px; }
+                .price-pcs { font-size: 9px; color: #444444; margin-top: 15px; margin-bottom: 0; }
+                .price { font-size: 18px; font-weight: bold; color: #000000; margin: 0; }
+                .footer { 
+                    background-color: #fca311; 
+                    height: 26px; 
+                    text-align: right; 
+                    font-weight: bold; 
+                    font-size: 11px; 
+                    line-height: 26px; 
+                    padding-right: 8px; 
+                    border-top: 1pt solid #cccccc; 
+                    color: #555555;
+                }
             </style>
-            </head><body>`;
-            const postHtml = "</body></html>";
-            
-            const printArea = document.getElementById('print-area').innerHTML;
-            const finalHtml = preHtml + printArea + postHtml;
+            </head><body>
+            <table border="0" cellpadding="0" cellspacing="0">
+            `;
 
-            // Buat Blob dan download
-            const blob = new Blob(['\ufeff', finalHtml], { type: 'application/msword' });
+            const cols = 4; // 4 Kolom per baris
+            
+            for(let i=0; i<labelsToPrint.length; i++) {
+                // Buka baris baru (<tr>)
+                if(i % cols === 0) wordHtml += `<tr>`;
+                
+                const item = labelsToPrint[i];
+                const priceFormatted = "Rp. " + new Intl.NumberFormat('id-ID').format(item.price);
+                
+                // Masukkan konten dalam kolom (<td>)
+                wordHtml += `
+                <td>
+                    <div class="content-box">
+                        <div class="name">${item.name}</div>
+                        <div class="code">${item.code}</div>
+                        <div class="price-pcs">Harga / PCS</div>
+                        <div class="price">${priceFormatted}</div>
+                    </div>
+                    <div class="footer">${storeName}</div>
+                </td>`;
+                
+                // Tutup baris (</tr>) jika sudah mencapai ujung kolom atau data terakhir
+                if((i + 1) % cols === 0 || i === labelsToPrint.length - 1) {
+                    
+                    // Jika ini baris terakhir tapi kolomnya belum pas 4, tambahkan kolom kosong agar tabel Word tetap rapi
+                    if (i === labelsToPrint.length - 1) {
+                        let remaining = cols - ((i + 1) % cols);
+                        if (remaining < cols) {
+                            for(let j=0; j<remaining; j++) {
+                                wordHtml += `<td></td>`;
+                            }
+                        }
+                    }
+                    wordHtml += `</tr>`;
+                }
+            }
+            wordHtml += `</table></body></html>`;
+
+            // Proses Download sebagai Blob Ms. Word
+            const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword' });
             const url = URL.createObjectURL(blob);
             
             const downloadLink = document.createElement("a");
